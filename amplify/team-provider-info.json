@@ -1,0 +1,20 @@
+{
+  "dev": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-amplifycognitomokup-dev-173602-authRole",
+      "UnauthRoleArn": "arn:aws:iam::807595017382:role/amplify-amplifycognitomokup-dev-173602-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::807595017382:role/amplify-amplifycognitomokup-dev-173602-authRole",
+      "Region": "eu-west-2",
+      "DeploymentBucketName": "amplify-amplifycognitomokup-dev-173602-deployment",
+      "UnauthRoleName": "amplify-amplifycognitomokup-dev-173602-unauthRole",
+      "StackName": "amplify-amplifycognitomokup-dev-173602",
+      "StackId": "arn:aws:cloudformation:eu-west-2:807595017382:stack/amplify-amplifycognitomokup-dev-173602/b7700710-e76c-11ed-ba6e-06fc0f016d34",
+      "AmplifyAppId": "d3niahcrxtsm55"
+    },
+    "categories": {
+      "auth": {
+        "phoneauthmokup": {}
+      }
+    }
+  }
+}
