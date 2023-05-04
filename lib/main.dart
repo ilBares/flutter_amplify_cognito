@@ -1,11 +1,38 @@
+import 'package:amplify_cognito_mokup/amplify/auth_event_handler.dart';
 import 'package:flutter/material.dart';
 
 // REQUIRED
-import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
+import 'package:amplify_cognito_mokup/amplify/cognito_utils.dart';
 import 'package:amplify_cognito_mokup/amplifyconfiguration.dart';
-import 'package:amplify_flutter/amplify_flutter.dart';
 
-void main() => runApp(MyWidget());
+void main() => runApp(const MyApp());
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: ThemeData(
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ButtonStyle(
+            fixedSize: MaterialStateProperty.all(
+              const Size(300, 40),
+            ),
+          ),
+        ),
+      ),
+      home: SafeArea(
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('AWS COGNITO'),
+          ),
+          body: MyWidget(),
+        ),
+      ),
+    );
+  }
+}
 
 class MyWidget extends StatefulWidget {
   @override
@@ -13,148 +40,272 @@ class MyWidget extends StatefulWidget {
 }
 
 class _MyWidgetState extends State<MyWidget> {
-  String _result = "No result";
-
   @override
   initState() {
     super.initState();
     _configureAmplify();
+    AuthEventHandler authEventHandler = AuthEventHandler();
+    authEventHandler.handleAuthEvents();
   }
 
   Future<void> _configureAmplify() async {
-    // Add any Amplify plugins you want to use
-    final authPlugin = AmplifyAuthCognito();
-    await Amplify.addPlugin(authPlugin);
-
-    // You can use addPlugins if you are going to be adding multiple plugins
-    // await Amplify.addPlugins([authPlugin, analyticsPlugin]);
-
-    // Once Plugins are added, configure Amplify
-    // Note: Amplify can only be configured once.
-
-    try {
-      await Amplify.configure(amplifyconfig);
-    } on AmplifyAlreadyConfiguredException {
-      safePrint("Tried to reconfigure Amplify.");
-    }
+    await CognitoUtils.configureAmplify(amplifyconfig);
   }
 
-  // USED TO SIGN UP THE USER
-  Future<void> signUpWithPhoneVerification(
+  Future<void> _signUpWithPhoneVerification(
     String username,
     String password,
     String phoneNumber,
+    String nickname,
+    String gender,
+    DateTime birthDate,
   ) async {
-    final userAttributes = <AuthUserAttributeKey, String>{
-      AuthUserAttributeKey.phoneNumber: phoneNumber,
-      // AuthUserAttributeKey.nickname: nickname,
-    };
-
-    final result = await Amplify.Auth.signUp(
-      username: username,
-      password: password,
-      options: SignUpOptions(
-        userAttributes: userAttributes,
-      ),
+    final result = await CognitoUtils.signUpWithPhoneVerification(
+      username,
+      password,
+      phoneNumber,
+      nickname,
+      gender,
+      birthDate,
     );
 
-    print(result);
-    setState(() {
-      _result =
-          'isSignUpComplete: ${result.isSignUpComplete} \nnextStep: ${result.nextStep}';
-      ;
-    });
+    _showSnackbar(
+      'isSignUpComplete: [${result.isSignUpComplete}] \nnextStep: [${result.nextStep}]',
+    );
   }
 
   // USED TO CONFIRM SIGN UP
-  Future<void> confirmSignUpPhoneVerification(
+  Future<void> _confirmSignUpPhoneVerification(
     String username,
     String otpCode,
   ) async {
-    final result = Amplify.Auth.confirmSignUp(
-      username: username,
-      confirmationCode: otpCode,
+    final result = await CognitoUtils.confirmSignUpPhoneVerification(
+      username,
+      otpCode,
     );
 
-    print(result);
-    setState(() {
-      result.asStream().forEach((element) {
-        _result +=
-            'isSignUpComplete: ${element.isSignUpComplete} \nnextStep: ${element.nextStep} \nuserId: ${element.userId}';
-      });
-    });
+    _showSnackbar(
+      'isSignUpComplete: [${result.isSignUpComplete}] \nnextStep: [${result.nextStep}]',
+    );
+  }
+
+  // USED TO RECONFIRM SIGN UP
+  Future<void> _reconfirmSignUpPhoneVerification(String username) async {
+    final result = await CognitoUtils.reconfirmSignUpPhoneVerification(
+      username,
+    );
+
+    _showSnackbar(
+      'isSigned: [${result.codeDeliveryDetails}]',
+    );
   }
 
   // USED TO SIGN IN
-  Future<void> signInWithPhoneVerification(
+  Future<void> _signIn(
     String username,
     String password,
   ) async {
-    final result = await Amplify.Auth.signIn(
-      username: username,
-      password: password,
+    final result = await CognitoUtils.signInWithPhoneVerification(
+      username,
+      password,
     );
 
-    print(result);
-    setState(() {
-      _result =
-          'isSignedIn: ${result.isSignedIn} \nnextStep: ${result.nextStep}';
-    });
+    _showSnackbar(
+      'isSigned: [${result.isSignedIn}] \nnextStep: [${result.nextStep}]',
+    );
+  }
+
+  Future<void> _isUserSignedIn() async {
+    final result = await CognitoUtils.isUserSignedIn();
+
+    _showSnackbar(
+      'IsUserSignedIn: [$result]',
+    );
+  }
+
+  Future<void> _signOut() async {
+    final result = await CognitoUtils.signOutCurrentUser();
+
+    _showSnackbar('${result.toJson()}');
+  }
+
+  Future<void> _getCurrentUser() async {
+    final result = await CognitoUtils.getCurrentUser();
+
+    _showSnackbar('Username: [${result.signInDetails.toJson()}]');
+  }
+
+  Future<void> _updatePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final result = await CognitoUtils.updatePassword(
+      oldPassword: oldPassword,
+      newPassword: newPassword,
+    );
+    _showSnackbar('Update password: [${result.toJson()}]');
+  }
+
+  Future<void> _resetPassword(String username) async {
+    final result = await CognitoUtils.resetPassword(username);
+
+    _showSnackbar(
+      'Reset Password result: [${result.toJson()}]',
+    );
+  }
+
+  Future<void> _confirmResetPassword(
+    String username,
+    String newPassword,
+    String otpCode,
+  ) async {
+    final result = await CognitoUtils.confirmResetPassword(
+      username: username,
+      newPassword: newPassword,
+      confirmationCode: otpCode,
+    );
+
+    _showSnackbar(
+      'Confirm Reset Password result: [${result.toJson()}]',
+    );
+  }
+
+  Future<void> _deleteUser() async {
+    await CognitoUtils.deleteUser();
+  }
+
+  _showSnackbar(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: SafeArea(
-            child: Column(
-              children: [
-                ///
-                /// LOGIN
-                ///
-                ElevatedButton(
-                  child: const Text('LOGIN'),
-                  onPressed: () {
-                    signUpWithPhoneVerification(
-                      '+393667097756',
-                      'TestPassword01.',
-                      '+393667097756',
-                    );
-                  },
-                ),
-
-                ///
-                /// CONFIRM SIGN IN
-                ///
-                ElevatedButton(
-                  child: const Text('CONFIRM'),
-                  onPressed: () {
-                    confirmSignUpPhoneVerification(
-                      '+393667097756',
-                      '157311',
-                    );
-                  },
-                ),
-
-                ///
-                /// SIGN IN
-                ///
-                ElevatedButton(
-                  child: const Text('SIGN IN'),
-                  onPressed: () {
-                    signInWithPhoneVerification(
-                      '+393667097756',
-                      'TestPassword01.',
-                    );
-                  },
-                ),
-
-                Text(_result),
-              ],
-            ),
+    return Center(
+      child: Column(
+        children: [
+          ///
+          /// SIGN UP + OTP CODE
+          ///
+          ElevatedButton(
+            onPressed: () {
+              _signUpWithPhoneVerification(
+                '+393667097756',
+                'TestPassword01.',
+                '+393667097756',
+                '_marcobare',
+                'MALE',
+                DateTime(2001, 3, 10),
+              );
+            },
+            child: const Text('SIGN UP'),
           ),
-        ),
+
+          ///
+          /// RESEND OTP CODE
+          ///
+          ElevatedButton(
+            onPressed: () {
+              _reconfirmSignUpPhoneVerification(
+                '+393667097756',
+              );
+            },
+            child: const Text('RESEND OTP CODE'),
+          ),
+
+          ///
+          /// CONFIRM SIGN UP
+          ///
+          ElevatedButton(
+            onPressed: () {
+              _confirmSignUpPhoneVerification(
+                '+393667097756',
+                '585575',
+              );
+            },
+            child: const Text('CONFIRM'),
+          ),
+
+          ///
+          /// SIGN IN
+          ///
+          ElevatedButton(
+            onPressed: () {
+              _signIn(
+                '+393667097756',
+                // 'TestPassword01.',
+                'TestPassword01.',
+              );
+            },
+            child: const Text('SIGN IN'),
+          ),
+
+          ///
+          /// IS USER SIGNED IN
+          ///
+          ElevatedButton(
+            onPressed: _isUserSignedIn,
+            child: const Text('IS USER SIGNED IN'),
+          ),
+
+          ///
+          /// SIGN OUT
+          ///
+          ElevatedButton(
+            onPressed: _signOut,
+            child: const Text('SIGN OUT'),
+          ),
+
+          ///
+          /// GET CURRENT USER
+          ///
+          ElevatedButton(
+            onPressed: _getCurrentUser,
+            child: const Text('GET CURRENT USER'),
+          ),
+
+          ///
+          /// UPDATE PASSWORD
+          ///
+          ElevatedButton(
+            onPressed: () => _updatePassword(
+              oldPassword: 'TestPassword01?',
+              newPassword: 'TestPassword01.',
+            ),
+            child: const Text('UPDATE PASSWORD'),
+          ),
+
+          ///
+          /// RESET PASSWORD
+          ///
+          ElevatedButton(
+            onPressed: () => _resetPassword('+393667097756'),
+            child: const Text('RESET PASSWORD'),
+          ),
+
+          ///
+          /// CONFIRM RESET PASSWORD
+          ///
+          ElevatedButton(
+            onPressed: () => _confirmResetPassword(
+              '+393667097756',
+              'TestPassword01?',
+              '346886',
+            ),
+            child: const Text('CONFIRM RESET PASSWORD'),
+          ),
+
+          ///
+          /// DELETE USER
+          ///
+          ElevatedButton(
+            onPressed: _deleteUser,
+            child: const Text('DELETE USER'),
+          ),
+        ],
       ),
     );
   }
